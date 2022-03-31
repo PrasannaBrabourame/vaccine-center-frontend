@@ -2,7 +2,7 @@
  *                                                                              *
  * Author       :  Prasanna Brabourame                                          *
  * Version      :  1.0.0                                                        *
- * Date         :  28 Mar 2021                                                  *
+ * Date         :  31 Mar 2021                                                  *
  ********************************************************************************/
 
 import {
@@ -14,10 +14,9 @@ import {
   DialogTitle,
   Dialog,
   TextField,
-  Select,
-  MenuItem,
   InputLabel,
-  Grid
+  Grid,
+  LinearProgress
 } from "@mui/material";
 import PropTypes from 'prop-types';
 import { styled } from '@mui/material/styles';
@@ -26,6 +25,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import React, { useEffect, useState } from "react";
 import { fetchVaccineCenterList } from '../../services/vaccineCenter'
 import { fetchTimeSlots } from "../../services/timeSlots";
+import { registerVaccination } from "../../services/vaccineRegistration";
 
 
 const BootstrapDialog = styled(Dialog)(({ theme }) => ({
@@ -71,11 +71,19 @@ const VaccineRegistration = () => {
   const [vaccineCenter, setVaccineCenter] = useState([])
   const [open, setOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
+  const [vCenter, setVCenter] = useState('');
   const [vDate, setVDate] = useState('');
+  const [vTime, setVTime] = useState('');
+  const [vMins, setVMins] = useState('');
+  const [nric, setNric] = useState('');
+  const [name, setName] = useState('');
   const [selTimeSlots, setSelTimeSlots] = useState([])
   const [minSlots, setMinSlots] = useState([])
+  const [progress, setProgress] = useState(false)
 
-  const handleClickOpen = async (param, date) => {
+  const handleClickOpen = async (param, date, event) => {
+    setProgress(true)
+    setVCenter(param.code)
     setVDate(date)
     setOpen(true)
     setTimeOpen(false)
@@ -84,8 +92,7 @@ const VaccineRegistration = () => {
       setMinSlots(timeSlots.data.minutesSlots)
       setSelTimeSlots(timeSlots.data.timeSlots)
     }
-    console.log(timeSlots)
-
+    setProgress(false)
   };
   const handleClose = async () => {
     setVDate('')
@@ -96,12 +103,36 @@ const VaccineRegistration = () => {
 
   const openTimeSlot = (event, val) => {
     setTimeOpen(true)
+    setVTime(val)
   }
+
+  const openMinSlot = (event, val) => {
+    setVMins(val)
+  }
+
+  const regVaccination = async (event) => {
+    setProgress(true)
+    const data = {
+      vaccineCenter: vCenter,
+      vaccineDate: vDate,
+      vaccineTime: vTime,
+      vaccineMin: vMins,
+      nric: nric,
+      name: name,
+    }
+    let response = await registerVaccination(data)
+    console.log(response)
+    setProgress(false)
+  }
+
   useEffect(() => {
+    setProgress(true)
     const fetchCategoryVariantList = async () => {
       let categoryVariants = await fetchVaccineCenterList({})
-      if (categoryVariants.status)
+      if (categoryVariants.status){
         setVaccineCenter(categoryVariants.data.response)
+      }
+      setProgress(false)  
     }
     fetchCategoryVariantList()
 
@@ -110,6 +141,7 @@ const VaccineRegistration = () => {
   return (
     <React.Fragment>
       <CssBaseline />
+      {progress ? <LinearProgress /> : ''}
       <Container>
         <Typography component="h1" variant="h5">
           Click on the Available Slots
@@ -128,9 +160,9 @@ const VaccineRegistration = () => {
               return (
                 <tr key={index}>
                   <td data-column="Vaccine Center Name">{v.vCenterName}</td>
-                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, e)}>{v['30-03-2022']}</Button></td>
-                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, e)}>{v['31-03-2022']}</Button></td>
-                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, e)}>{v['01-04-2022']}</Button></td>
+                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, '30-03-2022', e)}>{v['30-03-2022']}</Button></td>
+                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, '31-03-2022', e)}>{v['31-03-2022']}</Button></td>
+                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, '01-04-2022', e)}>{v['01-04-2022']}</Button></td>
                 </tr>
               );
             })}
@@ -175,6 +207,8 @@ const VaccineRegistration = () => {
                 label="NRIC Number"
                 name="NRIC"
                 autoComplete="nric"
+                onInput={(e) => setNric(e.target.value)}
+                value={nric}
                 sx={{ mb: 2 }}
                 autoFocus
               />
@@ -184,53 +218,34 @@ const VaccineRegistration = () => {
                 id="name"
                 label="Full Name"
                 name="name"
+                onInput={(e) => setName(e.target.value)}
+                value={name}
                 autoComplete="name"
                 sx={{ mb: 2 }}
               />
               <InputLabel id="vaccineCenterLabel">Vaccine Slot Picker</InputLabel>
-              <Select
-                labelId="vaccineCenterLabel"
-                label="Vaccine Center"
-                required
-                fullWidth
-                id="vaccineCenter"
-                value={[]}
-                onChange={console.log(1)}
-                sx={{ mb: 2 }}
-              ><Grid container spacing={3}>
-                  <Grid item xs="auto">
-                    <Button variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openTimeSlot(e)}>00:00 - 00:10 </Button>
+              <Grid container spacing={3}>
+                {minSlots.map((t, index) => {
+                  return <Grid key={index} item xs="auto">
+                    <Button key={index} variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openMinSlot(e, t.code)}>{t.mins} </Button>
                   </Grid>
-                  <Grid item xs="auto">
-                    <Button variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openTimeSlot(e)}>00:10 - 00:20 </Button>
-                  </Grid>
-                  <Grid item xs="auto">
-                    <Button variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openTimeSlot(e)}>00:20 - 00:30 </Button>
-                  </Grid>
-                  <Grid item xs="auto">
-                    <Button variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openTimeSlot(e)}>00:30 - 00:40 </Button>
-                  </Grid>
-                  <Grid item xs="auto">
-                    <Button variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openTimeSlot(e)}>00:40 - 00:50 </Button>
-                  </Grid>
-                  <Grid item xs="auto">
-                    <Button variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openTimeSlot(e)}>00:50 - 00:60 </Button>
-                  </Grid>
-                </Grid>
-              </Select>
+                })}
+              </Grid>
               <Button
                 type="submit"
                 fullWidth
                 variant="contained"
                 sx={{ mt: 3, mb: 2 }}
+                onClick={(e) => regVaccination(e)}
               >
                 Register!
               </Button>
             </Box>
           </Container>
-        </React.Fragment> : ''}
-      </BootstrapDialog>
-    </React.Fragment>
+        </React.Fragment> : ''
+        }
+      </BootstrapDialog >
+    </React.Fragment >
   );
 }
 
