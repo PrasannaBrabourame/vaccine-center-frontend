@@ -2,14 +2,14 @@
  *                                                                              *
  * Author       :  Prasanna Brabourame                                          *
  * Version      :  1.0.0                                                        *
- * Date         :  31 Mar 2021                                                  *
+ * Date         :  01 Apr 2022                                                 *
  ********************************************************************************/
 
 import './App.css';
-import { Route, Switch, BrowserRouter } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import VaccineRegistration from './containers/VaccineRegistration/VaccineRegistration';
-import { VaccineRegistrationListing } from './containers/VaccineRegistration/ListVaccinationBooking';
-import { EditVaccineRegistration } from './containers/VaccineRegistration/EditVaccinationBooking';
+import VaccineRegistrationListing from './containers/VaccineRegistration/ListVaccinationBooking';
+import EditVaccineRegistration from './containers/VaccineRegistration/EditVaccinationBooking';
 import { NavBar } from './containers/Nav';
 import { Component } from 'react';
 import AdapterDateFns from '@mui/lab/AdapterDayjs';
@@ -22,14 +22,14 @@ class App extends Component {
   render() {
     return (
       <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <BrowserRouter>
+        <Router>
           <NavBar />
-          <Switch>
-            <Route path="/bookings" exact component={VaccineRegistrationListing} />
-            <Route path="/bookings/:bookingId" exact component={EditVaccineRegistration} />
-            <Route path="/" exact component={VaccineRegistration} />
-          </Switch>
-        </BrowserRouter>
+          <Routes>
+            <Route path="/bookings" element={<VaccineRegistrationListing/>} />
+            <Route path="/bookings/:bookingId" element={<EditVaccineRegistration/>} />
+            <Route path="/" element={<VaccineRegistration/>} />
+          </Routes>
+        </Router>
       </LocalizationProvider>
     )
   }

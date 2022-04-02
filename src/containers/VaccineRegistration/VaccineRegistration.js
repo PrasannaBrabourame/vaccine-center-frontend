@@ -2,7 +2,7 @@
  *                                                                              *
  * Author       :  Prasanna Brabourame                                          *
  * Version      :  1.0.0                                                        *
- * Date         :  31 Mar 2021                                                  *
+ * Date         :  01 Apr 2022                                                 *
  ********************************************************************************/
 
 import {
@@ -67,7 +67,6 @@ BootstrapDialogTitle.propTypes = {
 };
 
 const VaccineRegistration = () => {
-
   const [vaccineCenter, setVaccineCenter] = useState([])
   const [open, setOpen] = useState(false);
   const [timeOpen, setTimeOpen] = useState(false);
@@ -79,11 +78,12 @@ const VaccineRegistration = () => {
   const [name, setName] = useState('');
   const [selTimeSlots, setSelTimeSlots] = useState([])
   const [minSlots, setMinSlots] = useState([])
+  const [dateSlots, setDateSlots] = useState([])
   const [progress, setProgress] = useState(false)
 
-  const handleClickOpen = async (param, date, event) => {
+  const handleClickOpen = async (param, date) => {
     setProgress(true)
-    setVCenter(param.code)
+    setVCenter(param.center.code)
     setVDate(date)
     setOpen(true)
     setTimeOpen(false)
@@ -91,6 +91,8 @@ const VaccineRegistration = () => {
     if (timeSlots.status) {
       setMinSlots(timeSlots.data.minutesSlots)
       setSelTimeSlots(timeSlots.data.timeSlots)
+    } else {
+      alert(timeSlots.data.response.code)
     }
     setProgress(false)
   };
@@ -98,7 +100,6 @@ const VaccineRegistration = () => {
     setVDate('')
     setOpen(false)
     setTimeOpen(false)
-
   };
 
   const openTimeSlot = (event, val) => {
@@ -106,11 +107,7 @@ const VaccineRegistration = () => {
     setVTime(val)
   }
 
-  const openMinSlot = (event, val) => {
-    setVMins(val)
-  }
-
-  const regVaccination = async (event) => {
+  const regVaccination = async () => {
     setProgress(true)
     const data = {
       vaccineCenter: vCenter,
@@ -120,22 +117,22 @@ const VaccineRegistration = () => {
       nric: nric,
       name: name,
     }
-    let response = await registerVaccination(data)
-    console.log(response)
-    setProgress(false)
+    await registerVaccination(data)
   }
 
   useEffect(() => {
     setProgress(true)
     const fetchCategoryVariantList = async () => {
       let categoryVariants = await fetchVaccineCenterList({})
-      if (categoryVariants.status){
-        setVaccineCenter(categoryVariants.data.response)
+      if (categoryVariants.status) {
+        setVaccineCenter(categoryVariants.data.response.vaccineCenters)
+        setDateSlots(categoryVariants.data.response.dateSlots)
+      } else {
+        alert(categoryVariants.data.response.code)
       }
-      setProgress(false)  
+      setProgress(false)
     }
     fetchCategoryVariantList()
-
   }, []);
 
   return (
@@ -160,9 +157,7 @@ const VaccineRegistration = () => {
               return (
                 <tr key={index}>
                   <td data-column="Vaccine Center Name">{v.vCenterName}</td>
-                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, '30-03-2022', e)}>{v['30-03-2022']}</Button></td>
-                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, '31-03-2022', e)}>{v['31-03-2022']}</Button></td>
-                  <td data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, '01-04-2022', e)}>{v['01-04-2022']}</Button></td>
+                  {dateSlots.map((d, ind) => { return <td key={ind} data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, d, e)}>{v[d]}</Button></td> })}
                 </tr>
               );
             })}
@@ -227,7 +222,7 @@ const VaccineRegistration = () => {
               <Grid container spacing={3}>
                 {minSlots.map((t, index) => {
                   return <Grid key={index} item xs="auto">
-                    <Button key={index} variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openMinSlot(e, t.code)}>{t.mins} </Button>
+                    <Button key={index} variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => setVMins(t.code)}>{t.mins} </Button>
                   </Grid>
                 })}
               </Grid>
@@ -236,7 +231,7 @@ const VaccineRegistration = () => {
                 fullWidth
                 variant="contained"
                 sx={{ mt: 3, mb: 2 }}
-                onClick={(e) => regVaccination(e)}
+                onClick={regVaccination()}
               >
                 Register!
               </Button>
