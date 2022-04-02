@@ -15,9 +15,11 @@ import {
   Dialog,
   TextField,
   InputLabel,
-  Grid,
-  LinearProgress
+  LinearProgress,
+  Select,
+  MenuItem
 } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import PropTypes from 'prop-types';
 import { styled } from '@mui/material/styles';
 import IconButton from '@mui/material/IconButton';
@@ -25,7 +27,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import React, { useEffect, useState } from "react";
 import { fetchVaccineCenterList } from '../../services/vaccineCenter'
 import { fetchTimeSlots } from "../../services/timeSlots";
-import { registerVaccination } from "../../services/vaccineRegistration";
+import { registerVaccination, fetchExistingSlots } from "../../services/vaccineRegistration";
+import { errorCodes } from "../../helpers/error"
+import { toast } from 'react-toastify';
 
 
 const BootstrapDialog = styled(Dialog)(({ theme }) => ({
@@ -67,9 +71,9 @@ BootstrapDialogTitle.propTypes = {
 };
 
 const VaccineRegistration = () => {
+  const navigate = useNavigate();
   const [vaccineCenter, setVaccineCenter] = useState([])
   const [open, setOpen] = useState(false);
-  const [timeOpen, setTimeOpen] = useState(false);
   const [vCenter, setVCenter] = useState('');
   const [vDate, setVDate] = useState('');
   const [vTime, setVTime] = useState('');
@@ -79,6 +83,9 @@ const VaccineRegistration = () => {
   const [selTimeSlots, setSelTimeSlots] = useState([])
   const [minSlots, setMinSlots] = useState([])
   const [dateSlots, setDateSlots] = useState([])
+  const [existSlots, setExistSlots] = useState({
+    minSlots: [], timeSlots: []
+  })
   const [progress, setProgress] = useState(false)
 
   const handleClickOpen = async (param, date) => {
@@ -86,26 +93,57 @@ const VaccineRegistration = () => {
     setVCenter(param.center.code)
     setVDate(date)
     setOpen(true)
-    setTimeOpen(false)
+    let existingSlots = await fetchExistingSlots({ vaccineDate: date, vaccineCenter: param.center.code })
+    if (existingSlots.status) {
+      setExistSlots(existingSlots.data.existingSlots)
+    } else {
+      toast.error(errorCodes[existingSlots.data.code], {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
+    }
     let timeSlots = await fetchTimeSlots()
     if (timeSlots.status) {
       setMinSlots(timeSlots.data.minutesSlots)
       setSelTimeSlots(timeSlots.data.timeSlots)
     } else {
-      alert(timeSlots.data.response.code)
+      toast.error(errorCodes[timeSlots.data.code], {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
     }
     setProgress(false)
   };
+
+  const handleSelectionInput = (event, type) => {
+    switch (type) {
+      case 'vaccineCenter':
+        setVCenter(event.target.value)
+        break;
+      case 'hours':
+        setVTime(event.target.value)
+        break;
+      case 'mins':
+        setVMins(event.target.value)
+        break;
+      default:
+        break;
+    }
+  }
+
   const handleClose = async () => {
     setVDate('')
     setOpen(false)
-    setTimeOpen(false)
   };
 
-  const openTimeSlot = (event, val) => {
-    setTimeOpen(true)
-    setVTime(val)
-  }
 
   const regVaccination = async () => {
     setProgress(true)
@@ -117,7 +155,22 @@ const VaccineRegistration = () => {
       nric: nric,
       name: name,
     }
-    await registerVaccination(data)
+    let response = await registerVaccination(data)
+    if (response.status) {
+      setOpen(false)
+      setProgress(false)
+      navigate('/bookings')
+    } else {
+      toast.error(errorCodes[response.data.code], {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
+      setProgress(false)
+    }
   }
 
   useEffect(() => {
@@ -128,7 +181,14 @@ const VaccineRegistration = () => {
         setVaccineCenter(categoryVariants.data.response.vaccineCenters)
         setDateSlots(categoryVariants.data.response.dateSlots)
       } else {
-        alert(categoryVariants.data.response.code)
+        toast.error(errorCodes[categoryVariants.data.code], {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
       }
       setProgress(false)
     }
@@ -141,15 +201,13 @@ const VaccineRegistration = () => {
       {progress ? <LinearProgress /> : ''}
       <Container>
         <Typography component="h1" variant="h5">
-          Click on the Available Slots
+          Click on the Available Dates for Vaccine Registration
         </Typography>
         <table>
           <thead>
             <tr>
               <th>Vaccine Centers</th>
-              <th>30 Mar 2022</th>
-              <th>31 Mar 2022</th>
-              <th>01 Apr 2022</th>
+              {dateSlots.map((d, ind) => { return <th key={ind}>{d}</th> })}
             </tr>
           </thead>
           <tbody>
@@ -157,12 +215,26 @@ const VaccineRegistration = () => {
               return (
                 <tr key={index}>
                   <td data-column="Vaccine Center Name">{v.vCenterName}</td>
-                  {dateSlots.map((d, ind) => { return <td key={ind} data-column="Slot Available"><Button variant="contained" color="success" onClick={(e) => handleClickOpen(v, d, e)}>{v[d]}</Button></td> })}
+                  {dateSlots.map((d, ind) => { return <td key={ind} data-column="Slot Available"><Button variant="contained" disabled={!v.dates[d].nurse} color={v.dates[d].nurse ? "success" : "error"} onClick={(e) => handleClickOpen(v, d, e)}>{v.dates[d].nurse ? v.dates[d].dates : "NA"}</Button></td> })}
                 </tr>
               );
             })}
           </tbody>
         </table>
+        <Button
+          variant="contained"
+          color="success"
+        >
+          Available Slots
+        </Button>
+
+        <Button
+          variant="contained"
+          color="error"
+          disabled={true}
+        >
+          Nurses Not Available
+        </Button>
       </Container>
       <BootstrapDialog
         onClose={handleClose}
@@ -170,27 +242,8 @@ const VaccineRegistration = () => {
         open={open}
       >
         <React.Fragment>
-          <BootstrapDialogTitle id="customized-dialog-title" onClose={handleClose}>
-            Modal title
-          </BootstrapDialogTitle>
-          <Box sx={{ flexGrow: 1 }}>
-            <Grid container spacing={3}>
-              {selTimeSlots.map((t, index) => {
-                return <Grid key={index} item xs="auto">
-                  <Button key={index} variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => openTimeSlot(e, t.code)}>{t.time}</Button>
-                </Grid>
-              })}
-            </Grid>
-          </Box>
-        </React.Fragment>
-        {timeOpen ? <React.Fragment>
           <Container>
-            <Box
-              component="form"
-              sx={{
-                mt: 8,
-              }}
-            >
+            <Box sx={{ flexGrow: 1 }}>
               <Typography component="h1" variant="h5">
                 Book a slot
               </Typography>
@@ -218,27 +271,48 @@ const VaccineRegistration = () => {
                 autoComplete="name"
                 sx={{ mb: 2 }}
               />
-              <InputLabel id="vaccineCenterLabel">Vaccine Slot Picker</InputLabel>
-              <Grid container spacing={3}>
-                {minSlots.map((t, index) => {
-                  return <Grid key={index} item xs="auto">
-                    <Button key={index} variant="outlined" color="success" style={{ width: 180, height: 50 }} onClick={(e) => setVMins(t.code)}>{t.mins} </Button>
-                  </Grid>
+              <InputLabel id="hourSelectLabel">Hours</InputLabel>
+              <Select
+                labelId="hourSelectLabel"
+                label="Hours"
+                required
+                fullWidth
+                id="hours"
+                value={vTime}
+                onChange={e => handleSelectionInput(e, "hours")}
+                sx={{ mb: 2 }}
+              >
+                {selTimeSlots.map((v) => {
+                  return <MenuItem disabled={existSlots.timeSlots.includes(v.code) ? true : false} key={v.code} name="hours" value={v.code}>{v.time}</MenuItem>;
                 })}
-              </Grid>
+              </Select>
+              <InputLabel id="minsSelectLabel">Minutes</InputLabel>
+              <Select
+                labelId="minsSelectLabel"
+                label="Mins"
+                required
+                fullWidth
+                id="mins"
+                value={vMins}
+                onChange={e => handleSelectionInput(e, "mins")}
+                sx={{ mb: 2 }}
+              >
+                {minSlots.map((v) => {
+                  return <MenuItem disabled={existSlots.minSlots.includes(v.code) ? true : false} key={v.code} name="mins" value={v.code}>{v.mins}</MenuItem>;
+                })}
+              </Select>
               <Button
                 type="submit"
                 fullWidth
                 variant="contained"
                 sx={{ mt: 3, mb: 2 }}
-                onClick={regVaccination()}
+                onClick={() => regVaccination()}
               >
                 Register!
               </Button>
             </Box>
           </Container>
-        </React.Fragment> : ''
-        }
+        </React.Fragment>
       </BootstrapDialog >
     </React.Fragment >
   );

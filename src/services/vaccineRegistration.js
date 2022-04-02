@@ -122,4 +122,31 @@ const updateVaccinationDetails = async (params) => {
     }
 }
 
-export { registerVaccination, deleteRegistration, fetchRegistrationDetails ,updateVaccinationDetails}
+/**
+ * Function  used to register the get the Existing booked Records based on vaccinationcenter and date
+ * @async
+ * @function fetchExistingSlots
+ * @param {String} vaccineCenter Vaccination Center
+ * @param {String} vaccineDate Vaccination Date
+ * @returns {Object} Status
+ */
+const fetchExistingSlots = async (params) => {
+    try {
+        let config = {
+            method: 'POST',
+            url: `${process.env.REACT_APP_PARSE_SERVER_URL}/functions/fetchExistingSlots`,
+            headers: {
+                'X-Parse-Application-Id': process.env.REACT_APP_PARSE_SERVER_APP_ID,
+                'X-Parse-REST-API-Key': process.env.REACT_APP_SDK_REST_API_KEY,
+                'Content-Type': 'application/json'
+            },
+            data: params
+        };
+        const resp = await axios(config)
+        return resp.data.result.status ? { status: true, data: resp.data.result.data } : { status: false, data: resp.data.result.data }
+    } catch (error) {
+        return { status: false, data: error }
+    }
+}
+
+export { registerVaccination, deleteRegistration, fetchRegistrationDetails, updateVaccinationDetails, fetchExistingSlots }

@@ -26,6 +26,8 @@ import React, { useState, useEffect } from "react";
 import moment from 'moment';
 import { regstrationList } from "../../services/registrationList"
 import { deleteRegistration } from "../../services/vaccineRegistration"
+import { errorCodes } from "../../helpers/error"
+import { toast } from 'react-toastify';
 
 const VaccineRegistrationListing = () => {
   // State Declarations
@@ -41,7 +43,14 @@ const VaccineRegistrationListing = () => {
       if (vaccineRegistrations.status) {
         setVaccineRegistrationList(vaccineRegistrations.data.response)
       } else {
-        alert(vaccineRegistrations.data.response.code)
+        toast.error(errorCodes[vaccineRegistrations.data.code], {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        })
       }
       setProgress(false)
     }
@@ -54,7 +63,14 @@ const VaccineRegistrationListing = () => {
     if (deletedResponse.status) {
       setVaccineRegistrationList(deletedResponse.data.response)
     } else {
-      alert(deletedResponse.data.response.code)
+      toast.error(errorCodes[deletedResponse.data.code], {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
     }
   }
 
@@ -94,7 +110,7 @@ const VaccineRegistrationListing = () => {
                       <Button component={Link} to={`/bookings/${row.objectId}`} state={{ registerId: row.objectId }}>
                         <ModeEditIcon />
                       </Button>
-                      <Button onClick={deleteVaccineRegistration(row.objectId)}>
+                      <Button onClick={() => deleteVaccineRegistration(row.objectId)}>
                         <DeleteIcon />
                       </Button>
                     </TableCell>

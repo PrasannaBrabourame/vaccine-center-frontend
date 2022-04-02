@@ -16,12 +16,15 @@ import {
   MenuItem,
   LinearProgress
 } from "@mui/material";
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import React, { useEffect, useState } from "react";
-import { updateVaccinationDetails, fetchRegistrationDetails } from "../../services/vaccineRegistration";
+import { updateVaccinationDetails, fetchRegistrationDetails, fetchExistingSlots } from "../../services/vaccineRegistration";
+import { errorCodes } from "../../helpers/error"
+import { toast } from 'react-toastify';
 
 
 const EditVaccineRegistration = () => {
+  const navigate = useNavigate();
   const location = useLocation()
   const [vaccineCenter, setVaccineCenter] = useState([])
   const [vCenter, setVCenter] = useState('')
@@ -34,12 +37,30 @@ const EditVaccineRegistration = () => {
   const [selTimeSlots, setSelTimeSlots] = useState([])
   const [minSlots, setMinSlots] = useState([])
   const [progress, setProgress] = useState(false)
+  const [existSlots, setExistSlots] = useState({
+    minSlots: [], timeSlots: []
+  })
   const registerId = location.state.registerId
 
-  const handleSelectionInput = (event, type) => {
+  const handleSelectionInput =async (event, type) => {
     switch (type) {
       case 'vaccineCenter':
+        setProgress(true)
         setVCenter(event.target.value)
+        let existingSlots = await fetchExistingSlots({ vaccineDate: vDate, vaccineCenter: event.target.value })
+        if (existingSlots.status) {
+          setExistSlots(existingSlots.data.existingSlots)
+        } else {
+          toast.error(errorCodes[existingSlots.data.code], {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          })
+        }
+        setProgress(false)
         break;
       case 'hours':
         setVTime(event.target.value)
@@ -55,7 +76,8 @@ const EditVaccineRegistration = () => {
     }
   }
 
-  const updateVaccination = async (event) => {
+
+  const updateVaccination = async () => {
     setProgress(true)
     const data = {
       vaccineCenter: vCenter,
@@ -65,8 +87,21 @@ const EditVaccineRegistration = () => {
       nric: nric,
       name: name,
     }
-    await updateVaccinationDetails(data)
-    setProgress(false)
+    let response = await updateVaccinationDetails(data)
+    if (response.status) {
+      setProgress(false)
+      navigate('/bookings')
+    } else {
+      toast.error(errorCodes[response.data.code], {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
+      setProgress(false)
+    }
   }
 
   useEffect(() => {
@@ -74,18 +109,40 @@ const EditVaccineRegistration = () => {
     const fetchRegistrationDetail = async () => {
       let responseRegistrationDetails = await fetchRegistrationDetails({ id: registerId })
       if (responseRegistrationDetails.status) {
-        setVaccineCenter(responseRegistrationDetails.data.response.vaccineCenterList)
-        setDateSlots(responseRegistrationDetails.data.response.dateSlots)
-        setSelTimeSlots(responseRegistrationDetails.data.response.timeSlots)
-        setMinSlots(responseRegistrationDetails.data.response.minutesSlots)
-        setNric(responseRegistrationDetails.data.response.registrationDetails.nric)
-        setName(responseRegistrationDetails.data.response.registrationDetails.name)
-        setVCenter(responseRegistrationDetails.data.response.registrationDetails.vaccineCenter.code)
-        setVTime(responseRegistrationDetails.data.response.registrationDetails.timeSlots.code)
-        setVMins(responseRegistrationDetails.data.response.registrationDetails.minSlots.code)
-        setVDate(responseRegistrationDetails.data.response.registrationDetails.date)
-      }else{
-        alert(responseRegistrationDetails.data.response.code)
+        let responseDetails = responseRegistrationDetails.data.response
+        setVaccineCenter(responseDetails.vaccineCenterList)
+        setDateSlots(responseDetails.dateSlots)
+        setSelTimeSlots(responseDetails.timeSlots)
+        setMinSlots(responseDetails.minutesSlots)
+        setNric(responseDetails.registrationDetails.nric)
+        setName(responseDetails.registrationDetails.name)
+        setVCenter(responseDetails.registrationDetails.vaccineCenter.code)
+        setVTime(responseDetails.registrationDetails.timeSlots.code)
+        setVMins(responseDetails.registrationDetails.minSlots.code)
+        setVDate(responseDetails.registrationDetails.date)
+      } else {
+        toast.error(errorCodes[responseRegistrationDetails.data.code], {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+      }
+      let responseDetails = responseRegistrationDetails.data.response
+      let existingSlots = await fetchExistingSlots({ vaccineDate: responseDetails.registrationDetails.date, vaccineCenter: responseDetails.registrationDetails.vaccineCenter.code })
+      if (existingSlots.status) {
+        setExistSlots(existingSlots.data.existingSlots)
+      } else {
+        toast.error(errorCodes[existingSlots.data.code], {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        })
       }
       setProgress(false)
     }
@@ -169,7 +226,7 @@ const EditVaccineRegistration = () => {
           sx={{ mb: 2 }}
         >
           {selTimeSlots.map((v) => {
-            return <MenuItem key={v.code} name="hours" value={v.code}>{v.time}</MenuItem>;
+            return <MenuItem disabled={existSlots.timeSlots.includes(v.code) ? true : false} key={v.code} name="hours" value={v.code}>{v.time}</MenuItem>;
           })}
         </Select>
         <InputLabel id="minsSelectLabel">Minutes</InputLabel>
@@ -184,7 +241,7 @@ const EditVaccineRegistration = () => {
           sx={{ mb: 2 }}
         >
           {minSlots.map((v) => {
-            return <MenuItem key={v.code} name="mins" value={v.code}>{v.mins}</MenuItem>;
+            return <MenuItem disabled={existSlots.minSlots.includes(v.code) ? true : false} key={v.code} name="mins" value={v.code}>{v.mins}</MenuItem>;
           })}
         </Select>
         <Button

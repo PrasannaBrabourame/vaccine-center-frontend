@@ -15,6 +15,7 @@ import { Component } from 'react';
 import AdapterDateFns from '@mui/lab/AdapterDayjs';
 import LocalizationProvider from '@mui/lab/LocalizationProvider';
 
+
 class App extends Component {
   componentDidMount() {
     document.title = 'Vaccination Center';
